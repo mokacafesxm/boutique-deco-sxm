@@ -101,7 +101,7 @@ export default function Home() {
               </div>
             ))
           : filtered.map((p) => (
-              <div key={p.id} className="group cursor-pointer">
+              <a key={p.id} href={`/products/${p.id}`} className="group cursor-pointer">
                 <div className="mb-2 flex aspect-square items-center justify-center rounded-md bg-stone-100 overflow-hidden">
                   {p.images && p.images.length > 0 ? (
                     <img src={p.images[0]} alt={p.nom} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -112,7 +112,7 @@ export default function Home() {
                 <p className="text-sm font-medium">{p.nom}</p>
                 {p.dimensions && <p className="text-xs text-stone-400 mb-0.5">{p.dimensions}</p>}
                 <p className="text-sm text-stone-600">{formatPrice(p.prix)}</p>
-              </div>
+              </a>
             ))}
       </section>
 
