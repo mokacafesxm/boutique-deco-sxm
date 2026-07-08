@@ -13,7 +13,7 @@ const CATEGORIES = [
 const EMPTY = {
   nom: "", nom_en: "", description: "", prix: "",
   reference: "", categorie: CATEGORIES[0],
-  dimensions: "", quantite: 0, image_url: "", disponible: true,
+  dimensions: "", quantite: 0, images: [], disponible: true,
 };
 
 export default function AdminPage() {
@@ -101,25 +101,41 @@ export default function AdminPage() {
   }
 
   async function handleImageUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
     setUploading(true);
-    const ext = file.name.split(".").pop();
-    const filename = `${Date.now()}.${ext}`;
-    const { data, error } = await supabase.storage
-      .from("product-images")
-      .upload(filename, file, { upsert: true });
-    if (!error) {
-      const { data: urlData } = supabase.storage
+    const newUrls = [];
+    for (const file of files) {
+      const ext = file.name.split(".").pop();
+      const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage
         .from("product-images")
-        .getPublicUrl(filename);
-      setForm((f) => ({ ...f, image_url: urlData.publicUrl }));
+        .upload(filename, file, { upsert: true });
+      if (!error) {
+        const { data: urlData } = supabase.storage
+          .from("product-images")
+          .getPublicUrl(filename);
+        newUrls.push(urlData.publicUrl);
+      }
     }
+    setForm((f) => ({ ...f, images: [...(f.images || []), ...newUrls] }));
     setUploading(false);
   }
 
+  function removeImage(idx) {
+    setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
+  }
+
+  function moveImage(idx, dir) {
+    const imgs = [...(form.images || [])];
+    const target = idx + dir;
+    if (target < 0 || target >= imgs.length) return;
+    [imgs[idx], imgs[target]] = [imgs[target], imgs[idx]];
+    setForm((f) => ({ ...f, images: imgs }));
+  }
+
   function startEdit(p) {
-    setForm({ ...p, prix: String(p.prix) });
+    setForm({ ...p, prix: String(p.prix), images: p.images || [] });
     setEditId(p.id);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -135,7 +151,7 @@ export default function AdminPage() {
     const matchCat = catFilter === "Tous" || p.categorie === catFilter;
     const matchSearch =
       p.nom.toLowerCase().includes(search.toLowerCase()) ||
-      p.reference.toLowerCase().includes(search.toLowerCase());
+      (p.reference || "").toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
   });
 
@@ -154,10 +170,7 @@ export default function AdminPage() {
             className="w-full border border-stone-200 rounded-lg px-4 py-2.5 text-sm mb-3 outline-none focus:border-stone-400"
           />
           {authError && <p className="text-red-500 text-xs mb-3">{authError}</p>}
-          <button
-            onClick={login}
-            className="w-full bg-stone-900 text-white rounded-lg py-2.5 text-sm font-medium"
-          >
+          <button onClick={login} className="w-full bg-stone-900 text-white rounded-lg py-2.5 text-sm font-medium">
             Connexion
           </button>
         </div>
@@ -173,13 +186,8 @@ export default function AdminPage() {
           <h1 className="text-base font-medium">Administration</h1>
         </div>
         <div className="flex items-center gap-3">
-          <a href="/" target="_blank" className="text-xs text-stone-500 hover:text-stone-900">
-            Voir le site →
-          </a>
-          <button
-            onClick={startAdd}
-            className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg font-medium"
-          >
+          <a href="/" target="_blank" className="text-xs text-stone-500 hover:text-stone-900">Voir le site →</a>
+          <button onClick={startAdd} className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg font-medium">
             + Ajouter un produit
           </button>
         </div>
@@ -187,7 +195,6 @@ export default function AdminPage() {
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* Formulaire ajout/édition */}
         {showForm && (
           <div className="bg-white rounded-xl border border-stone-200 p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
@@ -242,20 +249,41 @@ export default function AdminPage() {
                 <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3}
                   className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400 resize-none" />
               </div>
+
+              {/* Section multi-photos */}
               <div className="sm:col-span-2">
-                <label className="text-xs text-stone-500 block mb-2">Image produit</label>
-                <div className="flex items-center gap-4">
-                  {form.image_url && (
-                    <img src={form.image_url} alt="" className="w-16 h-16 object-cover rounded-lg border border-stone-200" />
-                  )}
-                  <label className="cursor-pointer bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm px-4 py-2 rounded-lg">
-                    {uploading ? "Upload..." : "Choisir une image"}
-                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                  </label>
-                  {form.image_url && (
-                    <button onClick={() => setForm(f => ({ ...f, image_url: "" }))} className="text-xs text-red-400 hover:text-red-600">Supprimer</button>
-                  )}
-                </div>
+                <label className="text-xs text-stone-500 block mb-2">
+                  Photos produit <span className="text-stone-400">({(form.images || []).length} photo{(form.images || []).length > 1 ? 's' : ''} — la première sera l'image principale)</span>
+                </label>
+
+                {/* Grille des photos existantes */}
+                {(form.images || []).length > 0 && (
+                  <div className="flex flex-wrap gap-3 mb-3">
+                    {form.images.map((url, idx) => (
+                      <div key={url} className="relative group">
+                        <img src={url} alt="" className="w-20 h-20 object-cover rounded-lg border border-stone-200" />
+                        {idx === 0 && (
+                          <span className="absolute top-1 left-1 bg-stone-900 text-white text-[9px] px-1.5 py-0.5 rounded">Principale</span>
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-1">
+                          {idx > 0 && (
+                            <button onClick={() => moveImage(idx, -1)} className="bg-white text-stone-800 text-xs w-6 h-6 rounded flex items-center justify-center hover:bg-stone-100" title="Déplacer à gauche">←</button>
+                          )}
+                          {idx < form.images.length - 1 && (
+                            <button onClick={() => moveImage(idx, 1)} className="bg-white text-stone-800 text-xs w-6 h-6 rounded flex items-center justify-center hover:bg-stone-100" title="Déplacer à droite">→</button>
+                          )}
+                          <button onClick={() => removeImage(idx)} className="bg-red-500 text-white text-xs w-6 h-6 rounded flex items-center justify-center hover:bg-red-600" title="Supprimer">×</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <label className="cursor-pointer inline-flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm px-4 py-2 rounded-lg">
+                  {uploading ? "Upload en cours..." : "+ Ajouter des photos"}
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} disabled={uploading} />
+                </label>
+                <p className="text-xs text-stone-400 mt-1.5">Tu peux sélectionner plusieurs photos en même temps. Survole une photo pour la réordonner ou la supprimer.</p>
               </div>
             </div>
 
@@ -274,12 +302,8 @@ export default function AdminPage() {
 
         {/* Filtres */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher un produit..."
-            className="border border-stone-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-stone-400 w-64 bg-white"
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit..."
+            className="border border-stone-200 rounded-lg px-4 py-2 text-sm outline-none focus:border-stone-400 w-64 bg-white" />
           <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
             className="border border-stone-200 rounded-lg px-3 py-2 text-sm bg-white outline-none">
             <option>Tous</option>
@@ -288,7 +312,7 @@ export default function AdminPage() {
           <span className="text-xs text-stone-500 ml-auto">{filtered.length} produit{filtered.length > 1 ? 's' : ''}</span>
         </div>
 
-        {/* Table produits */}
+        {/* Table */}
         {loading ? (
           <p className="text-stone-500 text-sm">Chargement...</p>
         ) : (
@@ -296,7 +320,7 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-stone-100 bg-stone-50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-stone-500">Photo</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-stone-500">Photos</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-stone-500">Produit</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-stone-500">Catégorie</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-stone-500">Réf.</th>
@@ -310,13 +334,21 @@ export default function AdminPage() {
                 {filtered.map((p, i) => (
                   <tr key={p.id} className={`border-b border-stone-50 hover:bg-stone-50 ${i % 2 === 0 ? '' : 'bg-stone-50/30'}`}>
                     <td className="px-4 py-3">
-                      {p.image_url ? (
-                        <img src={p.image_url} alt="" className="w-10 h-10 object-cover rounded-md" />
-                      ) : (
-                        <div className="w-10 h-10 bg-stone-100 rounded-md flex items-center justify-center">
-                          <span className="text-stone-300 text-xs">–</span>
-                        </div>
-                      )}
+                      <div className="flex gap-1">
+                        {(p.images || []).slice(0, 3).map((url, idx) => (
+                          <img key={idx} src={url} alt="" className="w-10 h-10 object-cover rounded-md" />
+                        ))}
+                        {(!p.images || p.images.length === 0) && (
+                          <div className="w-10 h-10 bg-stone-100 rounded-md flex items-center justify-center">
+                            <span className="text-stone-300 text-xs">–</span>
+                          </div>
+                        )}
+                        {(p.images || []).length > 3 && (
+                          <div className="w-10 h-10 bg-stone-100 rounded-md flex items-center justify-center">
+                            <span className="text-xs text-stone-500">+{p.images.length - 3}</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 font-medium">{p.nom}</td>
                     <td className="px-4 py-3 text-stone-500">{p.categorie}</td>
@@ -340,9 +372,7 @@ export default function AdminPage() {
                             <button onClick={() => setDeleteId(null)} className="text-xs text-stone-400 px-2 py-1">Annuler</button>
                           </div>
                         ) : (
-                          <button onClick={() => setDeleteId(p.id)} className="text-xs text-stone-300 hover:text-red-400 px-2 py-1">
-                            Supprimer
-                          </button>
+                          <button onClick={() => setDeleteId(p.id)} className="text-xs text-stone-300 hover:text-red-400 px-2 py-1">Supprimer</button>
                         )}
                       </div>
                     </td>

@@ -103,8 +103,8 @@ export default function Home() {
           : filtered.map((p) => (
               <div key={p.id} className="group cursor-pointer">
                 <div className="mb-2 flex aspect-square items-center justify-center rounded-md bg-stone-100 overflow-hidden">
-                  {p.image_url ? (
-                    <img src={p.image_url} alt={p.nom} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  {p.images && p.images.length > 0 ? (
+                    <img src={p.images[0]} alt={p.nom} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : (
                     <ImageIcon size={22} className="text-stone-300" />
                   )}
