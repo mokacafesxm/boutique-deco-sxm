@@ -16,6 +16,14 @@ const EMPTY = {
   dimensions: "", quantite: 0, images: [], disponible: true,
 };
 
+const EMPTY_BANNER = {
+  banner_kicker: "NOUVELLE COLLECTION",
+  banner_title: "Mobilier et décoration, esprit Caraïbes",
+  banner_subtitle: "Pièces sélectionnées pour la maison, livrées à Saint-Martin et dans les îles",
+  banner_cta: "Voir la collection",
+  banner_image: "",
+};
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
@@ -30,6 +38,10 @@ export default function AdminPage() {
   const [catFilter, setCatFilter] = useState("Tous");
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [showBanner, setShowBanner] = useState(false);
+  const [banner, setBanner] = useState(EMPTY_BANNER);
+  const [savingBanner, setSavingBanner] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
 
   useEffect(() => {
     if (sessionStorage.getItem("admin_ok") === "1") setAuthed(true);
@@ -145,6 +157,45 @@ export default function AdminPage() {
     setForm(EMPTY);
     setEditId(null);
     setShowForm(true);
+    setShowBanner(false);
+  }
+
+  async function openBanner() {
+    const res = await fetch("/api/settings");
+    const data = await res.json();
+    setBanner({ ...EMPTY_BANNER, ...data });
+    setShowBanner(true);
+    setShowForm(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function handleBannerImageUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingBanner(true);
+    const ext = file.name.split(".").pop();
+    const filename = `banner-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage
+      .from("product-images")
+      .upload(filename, file, { upsert: true });
+    if (!error) {
+      const { data: urlData } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(filename);
+      setBanner((b) => ({ ...b, banner_image: urlData.publicUrl }));
+    }
+    setUploadingBanner(false);
+  }
+
+  async function handleBannerSave() {
+    setSavingBanner(true);
+    await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(banner),
+    });
+    setSavingBanner(false);
+    setShowBanner(false);
   }
 
   const filtered = products.filter((p) => {
@@ -187,6 +238,9 @@ export default function AdminPage() {
         </div>
         <div className="flex items-center gap-3">
           <a href="/" target="_blank" className="text-xs text-stone-500 hover:text-stone-900">Voir le site →</a>
+          <button onClick={openBanner} className="text-sm px-4 py-2 rounded-lg font-medium border border-stone-200 text-stone-700 hover:border-stone-400">
+            Bannière
+          </button>
           <button onClick={startAdd} className="bg-stone-900 text-white text-sm px-4 py-2 rounded-lg font-medium">
             + Ajouter un produit
           </button>
@@ -293,6 +347,66 @@ export default function AdminPage() {
                 {saving ? "Enregistrement..." : editId ? "Enregistrer" : "Créer le produit"}
               </button>
               <button onClick={() => { setShowForm(false); setForm(EMPTY); setEditId(null); }}
+                className="text-sm px-6 py-2.5 rounded-lg border border-stone-200 text-stone-600">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {showBanner && (
+          <div className="bg-white rounded-xl border border-stone-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="font-medium">Bannière d'accueil</h2>
+              <button onClick={() => setShowBanner(false)} className="text-stone-400 hover:text-stone-600 text-xl">×</button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Texte au-dessus du titre</label>
+                <input value={banner.banner_kicker} onChange={e => setBanner(b => ({ ...b, banner_kicker: e.target.value }))}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400" />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Titre principal</label>
+                <input value={banner.banner_title} onChange={e => setBanner(b => ({ ...b, banner_title: e.target.value }))}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400" />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Texte descriptif</label>
+                <textarea value={banner.banner_subtitle} onChange={e => setBanner(b => ({ ...b, banner_subtitle: e.target.value }))} rows={2}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400 resize-none" />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 block mb-1">Texte du bouton</label>
+                <input value={banner.banner_cta} onChange={e => setBanner(b => ({ ...b, banner_cta: e.target.value }))}
+                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-stone-400" />
+              </div>
+
+              <div>
+                <label className="text-xs text-stone-500 block mb-2">Image de fond (optionnelle)</label>
+                {banner.banner_image && (
+                  <div className="relative inline-block mb-3">
+                    <img src={banner.banner_image} alt="" className="h-28 w-auto rounded-lg border border-stone-200 object-cover" />
+                    <button onClick={() => setBanner(b => ({ ...b, banner_image: "" }))}
+                      className="absolute top-1 right-1 bg-red-500 text-white text-xs w-6 h-6 rounded flex items-center justify-center hover:bg-red-600" title="Retirer l'image">×</button>
+                  </div>
+                )}
+                <div>
+                  <label className="cursor-pointer inline-flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-700 text-sm px-4 py-2 rounded-lg">
+                    {uploadingBanner ? "Upload en cours..." : banner.banner_image ? "Remplacer l'image" : "+ Ajouter une image"}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleBannerImageUpload} disabled={uploadingBanner} />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-6 border-t border-stone-100">
+              <button onClick={handleBannerSave} disabled={savingBanner}
+                className="bg-stone-900 text-white text-sm px-6 py-2.5 rounded-lg font-medium disabled:opacity-50">
+                {savingBanner ? "Enregistrement..." : "Enregistrer la bannière"}
+              </button>
+              <button onClick={() => setShowBanner(false)}
                 className="text-sm px-6 py-2.5 rounded-lg border border-stone-200 text-stone-600">
                 Annuler
               </button>

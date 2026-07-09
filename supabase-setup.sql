@@ -80,3 +80,21 @@ insert into products (nom, prix, reference, categorie, dimensions, quantite, dis
 ('Pot PVC (M)', 35, 'YF-20/1230 C', 'Pot extérieur', '', 1, true),
 ('Pot PVC (S)', 25, 'YF-20/1230 D', 'Pot extérieur', '', 1, true),
 ('Coffee Table', 120, 'YB 010151', 'Table basse extérieure', '', 4, true);
+
+-- 6. Table des réglages du site (bannière d'accueil éditable, etc.)
+create table if not exists settings (
+  key text primary key,
+  value text default ''
+);
+
+-- Désactiver RLS pour simplifier (à sécuriser plus tard si besoin)
+alter table settings disable row level security;
+
+-- Valeurs par défaut de la bannière d'accueil
+insert into settings (key, value) values
+('banner_kicker', 'NOUVELLE COLLECTION'),
+('banner_title', 'Mobilier et décoration, esprit Caraïbes'),
+('banner_subtitle', 'Pièces sélectionnées pour la maison, livrées à Saint-Martin et dans les îles'),
+('banner_cta', 'Voir la collection'),
+('banner_image', '')
+on conflict (key) do nothing;

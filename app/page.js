@@ -3,16 +3,23 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
-  Armchair, BedDouble, Lightbulb, TreePine,
+  Armchair, Zap, Sparkles,
   Image as ImageIcon, Instagram, Mail, ShoppingBag,
 } from "lucide-react";
 
 const CATEGORY_GROUPS = [
-  { label: "Mobilier LED", icon: Lightbulb, keys: ["Table LED", "Siège LED", "Cube LED", "Colonne LED"] },
-  { label: "Déco LED", icon: Lightbulb, keys: ["Déco LED", "Bar LED", "Pot LED"] },
-  { label: "Salon & Extérieur", icon: Armchair, keys: ["Salon extérieur", "Table extérieure", "Table basse extérieure", "Transат extérieur"] },
-  { label: "Jardin & Déco", icon: TreePine, keys: ["Chaise extérieure", "Pot extérieur"] },
+  { label: "Mobilier LED", icon: Zap, keys: ["Table LED", "Siège LED", "Cube LED", "Colonne LED"] },
+  { label: "Déco LED", icon: Sparkles, keys: ["Déco LED", "Bar LED", "Pot LED"] },
+  { label: "Salon & Extérieur", icon: Armchair, keys: ["Salon extérieur", "Table extérieure", "Table basse extérieure", "Transат extérieur", "Chaise extérieure", "Pot extérieur"] },
 ];
+
+const BANNER_DEFAULTS = {
+  banner_kicker: "NOUVELLE COLLECTION",
+  banner_title: "Mobilier et décoration, esprit Caraïbes",
+  banner_subtitle: "Pièces sélectionnées pour la maison, livrées à Saint-Martin et dans les îles",
+  banner_cta: "Voir la collection",
+  banner_image: "",
+};
 
 function formatPrice(value) {
   return new Intl.NumberFormat("fr-FR", {
@@ -22,8 +29,9 @@ function formatPrice(value) {
 
 export default function Home() {
   const [products, setProducts] = useState([]);
-  const [activeGroup, setActiveGroup] = useState("Tous");
+  const [activeGroup, setActiveGroup] = useState("Mobilier LED");
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState(BANNER_DEFAULTS);
 
   useEffect(() => {
     fetch("/api/products")
@@ -34,11 +42,16 @@ export default function Home() {
       });
   }, []);
 
-  const filtered = activeGroup === "Tous"
-    ? products
-    : products.filter((p) =>
-        CATEGORY_GROUPS.find((g) => g.label === activeGroup)?.keys.includes(p.categorie)
-      );
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((data) => setBanner({ ...BANNER_DEFAULTS, ...data }))
+      .catch(() => {});
+  }, []);
+
+  const filtered = products.filter((p) =>
+    CATEGORY_GROUPS.find((g) => g.label === activeGroup)?.keys.includes(p.categorie)
+  );
 
   return (
     <main className="mx-auto max-w-6xl">
@@ -62,32 +75,57 @@ export default function Home() {
       </nav>
 
       {/* Hero */}
-      <section className="bg-stone-50 px-6 py-16 text-center">
-        <p className="mb-3 text-xs tracking-widest text-stone-500">NOUVELLE COLLECTION</p>
-        <h1 className="mx-auto mb-3 max-w-md text-2xl font-medium">Mobilier et décoration, esprit Caraïbes</h1>
-        <p className="mx-auto mb-6 max-w-sm text-sm leading-relaxed text-stone-600">
-          Pièces sélectionnées pour la maison, livrées à Saint-Martin et dans les îles
-        </p>
-        <a href="#catalogue" className="inline-block rounded-md bg-stone-900 px-6 py-2.5 text-sm font-medium text-white">
-          Voir la collection
-        </a>
+      <section
+        className="relative bg-stone-50 px-6 py-16 text-center"
+        style={banner.banner_image ? {
+          backgroundImage: `url(${banner.banner_image})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        } : undefined}
+      >
+        {banner.banner_image && <div className="absolute inset-0 bg-black/40" />}
+        <div className="relative">
+          <p className={`mb-3 text-xs tracking-widest ${banner.banner_image ? "text-white/80" : "text-stone-500"}`}>
+            {banner.banner_kicker}
+          </p>
+          <h1 className={`mx-auto mb-3 max-w-md text-2xl font-medium ${banner.banner_image ? "text-white" : ""}`}>
+            {banner.banner_title}
+          </h1>
+          <p className={`mx-auto mb-6 max-w-sm text-sm leading-relaxed ${banner.banner_image ? "text-white/90" : "text-stone-600"}`}>
+            {banner.banner_subtitle}
+          </p>
+          <a href="#catalogue" className="inline-block rounded-md bg-stone-900 px-6 py-2.5 text-sm font-medium text-white">
+            {banner.banner_cta}
+          </a>
+        </div>
       </section>
 
       {/* Filtres catégories */}
-      <section id="catalogue" className="px-6 pt-8 pb-4 flex flex-wrap gap-2">
-        {["Tous", ...CATEGORY_GROUPS.map((g) => g.label)].map((label) => (
-          <button
-            key={label}
-            onClick={() => setActiveGroup(label)}
-            className={`text-xs px-4 py-2 rounded-full border transition-colors ${
-              activeGroup === label
-                ? "bg-stone-900 text-white border-stone-900"
-                : "border-stone-200 text-stone-600 hover:border-stone-400"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <section id="catalogue" className="flex justify-center gap-8 px-6 pt-10 pb-6 sm:gap-14">
+        {CATEGORY_GROUPS.map((g) => {
+          const Icon = g.icon;
+          const active = activeGroup === g.label;
+          return (
+            <button
+              key={g.label}
+              onClick={() => setActiveGroup(g.label)}
+              className="group flex flex-col items-center gap-2"
+            >
+              <span
+                className={`flex h-16 w-16 items-center justify-center rounded-full transition-colors ${
+                  active
+                    ? "bg-stone-900 text-white"
+                    : "bg-stone-100 text-stone-600 group-hover:bg-stone-200"
+                }`}
+              >
+                <Icon size={32} strokeWidth={1.5} />
+              </span>
+              <span className={`text-xs ${active ? "font-medium text-stone-900" : "text-stone-500"}`}>
+                {g.label}
+              </span>
+            </button>
+          );
+        })}
       </section>
 
       {/* Grille produits */}
