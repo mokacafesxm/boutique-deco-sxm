@@ -6,7 +6,10 @@ import { supabase } from '@/lib/supabase'
 // retombe sur ses valeurs par défaut sans planter.
 export async function GET() {
   const { data, error } = await supabase.from('settings').select('key, value')
-  if (error) return NextResponse.json({})
+  if (error) {
+    console.error('[settings GET] Supabase error:', error.message)
+    return NextResponse.json({})
+  }
   const map = {}
   for (const row of data) map[row.key] = row.value
   return NextResponse.json(map)
@@ -23,6 +26,9 @@ export async function POST(request) {
   const { error } = await supabase
     .from('settings')
     .upsert(rows, { onConflict: 'key' })
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[settings POST] Supabase error:', error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

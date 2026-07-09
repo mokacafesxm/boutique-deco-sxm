@@ -42,6 +42,7 @@ export default function AdminPage() {
   const [banner, setBanner] = useState(EMPTY_BANNER);
   const [savingBanner, setSavingBanner] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
+  const [bannerMsg, setBannerMsg] = useState(null);
 
   useEffect(() => {
     if (sessionStorage.getItem("admin_ok") === "1") setAuthed(true);
@@ -161,6 +162,7 @@ export default function AdminPage() {
   }
 
   async function openBanner() {
+    setBannerMsg(null);
     const res = await fetch("/api/settings");
     const data = await res.json();
     setBanner({ ...EMPTY_BANNER, ...data });
@@ -189,13 +191,26 @@ export default function AdminPage() {
 
   async function handleBannerSave() {
     setSavingBanner(true);
-    await fetch("/api/settings", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(banner),
-    });
-    setSavingBanner(false);
-    setShowBanner(false);
+    setBannerMsg(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(banner),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBannerMsg({ type: "error", text: data.error || `Erreur ${res.status}` });
+        setSavingBanner(false);
+        return;
+      }
+      setBannerMsg({ type: "success", text: "Bannière enregistrée ✓" });
+      setSavingBanner(false);
+      setTimeout(() => setShowBanner(false), 800);
+    } catch (e) {
+      setBannerMsg({ type: "error", text: e.message || "Erreur réseau" });
+      setSavingBanner(false);
+    }
   }
 
   const filtered = products.filter((p) => {
@@ -410,6 +425,11 @@ export default function AdminPage() {
                 className="text-sm px-6 py-2.5 rounded-lg border border-stone-200 text-stone-600">
                 Annuler
               </button>
+              {bannerMsg && (
+                <span className={`self-center text-sm ${bannerMsg.type === "error" ? "text-red-600" : "text-green-600"}`}>
+                  {bannerMsg.text}
+                </span>
+              )}
             </div>
           </div>
         )}
