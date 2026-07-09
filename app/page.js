@@ -83,15 +83,15 @@ export default function Home() {
           backgroundPosition: "center",
         } : undefined}
       >
-        {banner.banner_image && <div className="absolute inset-0 bg-black/40" />}
+        {banner.banner_image && <div className="absolute inset-0 bg-white/60" />}
         <div className="relative">
-          <p className={`mb-3 text-xs tracking-widest ${banner.banner_image ? "text-white/80" : "text-stone-500"}`}>
+          <p className="mb-3 text-xs tracking-widest text-stone-500">
             {banner.banner_kicker}
           </p>
-          <h1 className={`mx-auto mb-3 max-w-md text-2xl font-medium ${banner.banner_image ? "text-white" : ""}`}>
+          <h1 className="mx-auto mb-3 max-w-md text-2xl font-medium text-stone-900">
             {banner.banner_title}
           </h1>
-          <p className={`mx-auto mb-6 max-w-sm text-sm leading-relaxed ${banner.banner_image ? "text-white/90" : "text-stone-600"}`}>
+          <p className="mx-auto mb-6 max-w-sm text-sm leading-relaxed text-stone-600">
             {banner.banner_subtitle}
           </p>
           <a href="#catalogue" className="inline-block rounded-md bg-stone-900 px-6 py-2.5 text-sm font-medium text-white">
